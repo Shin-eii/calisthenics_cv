@@ -85,6 +85,8 @@ while cap.isOpened():
 
         # Step3: Find body angle
         body_angle = calculate_angle(shoulder, hip, ankle)
+        body_ok = body_angle > BODY_OK
+
 
         # Test : Put angle degree and color on the pic
         h_img, w_img, _ = image_bgr.shape
@@ -174,10 +176,11 @@ while cap.isOpened():
             stage = "down"
 
         # UP transition (count rep)
-        elif elbow_angle > ELBOW_UP and stage == "down" and body_status == "Body OK" :
-            stage = "up"
-            counter +=1
-        
+        elif elbow_angle > ELBOW_UP and stage == "down" :
+              if body_ok:
+                counter += 1
+              stage = "up"
+                    
 
 
         # Background box (optional but very clear)
