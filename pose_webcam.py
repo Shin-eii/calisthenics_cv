@@ -30,7 +30,7 @@ def calculate_angle(a, b, c):
     return angle
 
 
-cap = cv2.VideoCapture("pushup_2.mp4")
+cap = cv2.VideoCapture("pushup_3.mov")
 
 # Attibute 
 counter = 0
@@ -44,18 +44,26 @@ min_body_angle = 180
 
 
 while cap.isOpened():
+
     ret, frame = cap.read()
     if not ret:
         break
 
     image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     image_rgb.flags.writeable = False
-
+    
+    # detect body
     results = pose.process(image_rgb)
 
     image_rgb.flags.writeable = True
     image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
 
+    # Set Up 
+    elbow_angle = None
+    body_angle = None
+    body_ok = False
+
+    # if only detect
     if results.pose_landmarks:
         landmarks = results.pose_landmarks.landmark
 
@@ -121,6 +129,7 @@ while cap.isOpened():
         )
 
         # Get the Elbow Angle
+        elbow = None
 
         # Right arm
         re = landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW]
@@ -159,29 +168,33 @@ while cap.isOpened():
         cv2.circle(image_bgr, w_xy, 6, (0, 255, 0), -1)
 
         # Draw angle
-        cv2.putText(
-            image_bgr,
-            f"{int(elbow_angle)} deg",
-            (e_xy[0] + 10, e_xy[1] - 10),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (0, 255, 255),
-            2
-        )
+        
+            
 
         
 
         # DOWN: only enter if not already down
-        if elbow_angle < ELBOW_DOWN and stage == "up":
-            stage = "down"
+        if elbow_angle is not None:
+            if elbow_angle < ELBOW_DOWN and stage == "up":
+                stage = "down"
 
-        # UP transition (count rep)
-        elif elbow_angle > ELBOW_UP and stage == "down" :
-              if body_ok:
-                counter += 1
-              stage = "up"
-                    
+            # UP transition (count rep)
+            elif elbow_angle > ELBOW_UP and stage == "down" :
+                if body_ok:
+                    counter += 1
+                stage = "up"
 
+            # draw Elbow Angle
+            cv2.putText(
+                image_bgr,
+                f"{int(elbow_angle)} deg",
+                (e_xy[0] + 10, e_xy[1] - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 255, 255),
+                2
+            )
+                        
 
         # Background box (optional but very clear)
         cv2.rectangle(image_bgr, (10, 10), (220, 120), (0, 0, 0), -1)
@@ -207,21 +220,6 @@ while cap.isOpened():
             (255, 255, 255),
             2
         )
-
-
-
-
-
-        # # Debug label (optional)
-        # cv2.putText(
-        #     image_bgr,
-        #     f"Arm: {arm_used}",
-        #     (30, 260),
-        #     cv2.FONT_HERSHEY_SIMPLEX,
-        #     0.8,
-        #     (255, 255, 255),
-        #     2
-        # )
 
 
     cv2.imshow("Calisthenics Pose", image_bgr)
