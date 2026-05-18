@@ -173,7 +173,7 @@ while cap.isOpened():
 
         
 
-        # DOWN: only enter if not already down
+    # DOWN: only enter if not already down
         if elbow_angle is not None:
             if elbow_angle < ELBOW_DOWN and stage == "up":
                 stage = "down"
@@ -196,28 +196,30 @@ while cap.isOpened():
             )
                         
 
-        # Background box (optional but very clear)
-        cv2.rectangle(image_bgr, (10, 10), (220, 120), (0, 0, 0), -1)
+     # Background box (optional but very clear)
+    cv2.rectangle(image_bgr, (10, 10), (220, 120), (0, 0, 0), -1)
 
-        # Rep count
-        cv2.putText(
-            image_bgr,
-            f"Reps: {counter}",
-            (20, 50),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 255, 0),
-            2
-        )
-
-        # Stage (up / down)
-        cv2.putText(
+    # Stage (up / down)
+    cv2.putText(
             image_bgr,
             f"Stage: {stage}",
             (20, 95),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.8,
             (255, 255, 255),
+            2
+    )
+
+   
+
+    # Rep count
+    cv2.putText(
+            image_bgr,
+            f"Reps: {counter}",
+            (20, 50),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0, 255, 0),
             2
         )
 
