@@ -16,3 +16,6 @@ frog_stand/
 push_video/
 *.mp4
 *.avi
+
+# Main test
+main.py

@@ -2,10 +2,33 @@ import cv2
 import mediapipe as mp
 import numpy as np
 import os
+import time
 
 mp_pose = mp.solutions.pose
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
+
+DISPLAY_W, DISPLAY_H = 960, 540   # standard display resolution
+
+
+def _fit_to_display(frame):
+    """
+    Resize frame to fit inside DISPLAY_W x DISPLAY_H while preserving
+    aspect ratio. Adds black bars on the shorter axis (letterbox / pillarbox).
+    """
+    fh, fw = frame.shape[:2]
+    scale  = min(DISPLAY_W / fw, DISPLAY_H / fh)
+    new_w  = int(fw * scale)
+    new_h  = int(fh * scale)
+
+    resized = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+    # Centre on a black canvas
+    canvas = np.zeros((DISPLAY_H, DISPLAY_W, 3), dtype=np.uint8)
+    x_off  = (DISPLAY_W - new_w) // 2
+    y_off  = (DISPLAY_H - new_h) // 2
+    canvas[y_off:y_off + new_h, x_off:x_off + new_w] = resized
+    return canvas
 
 
 def _make_pose(is_image: bool):
@@ -229,6 +252,55 @@ def _annotate_frame(frame, landmarks, is_correct: bool, rows: list):
     return frame
 
 
+def _draw_timer(frame, hold_start, best_hold):
+    """
+    Draw a timer panel in the bottom-left corner.
+
+    hold_start : float | None  — time.time() when current hold began, None if resting
+    best_hold  : float         — longest hold so far in seconds
+    """
+    now          = time.time()
+    is_holding   = hold_start is not None
+    current_secs = (now - hold_start) if is_holding else 0.0
+
+    h, w, _ = frame.shape
+
+    # Panel dimensions
+    PANEL_W = 240
+    PANEL_H = 80
+    px, py  = 8, h - PANEL_H - 8          # bottom-left
+
+    cv2.rectangle(frame, (px, py), (px + PANEL_W, py + PANEL_H), (20, 20, 20), -1)
+    cv2.rectangle(frame, (px, py), (px + PANEL_W, py + PANEL_H), (80, 80, 80), 1)
+
+    # State label
+    if is_holding:
+        state_text  = "HOLDING"
+        state_color = (0, 220, 0)
+    else:
+        state_text  = "REST"
+        state_color = (140, 140, 140)
+
+    cv2.putText(frame, state_text,
+                (px + 8, py + 22),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.65, state_color, 2)
+
+    # Current hold — large clock-style
+    cur_str = f"{current_secs:05.2f}s"
+    cv2.putText(frame, cur_str,
+                (px + 8, py + 56),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0, state_color, 2)
+
+    # Best hold — smaller, right-aligned inside panel
+    best_str = f"BEST {best_hold:05.2f}s"
+    (tw, _), _ = cv2.getTextSize(best_str, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+    cv2.putText(frame, best_str,
+                (px + PANEL_W - tw - 6, py + 22),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (180, 180, 60), 1)
+
+    return frame
+
+
 def _process_frame(frame, pose):
     """Run pose detection on one BGR frame. Returns (annotated_frame, is_correct, pose_found)."""
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -275,7 +347,7 @@ def detect(source):
         label = "CORRECT FORM" if is_correct else ("INCORRECT FORM" if found else "No pose detected")
         print(f"[{os.path.basename(source)}] → {label}")
 
-        cv2.imshow(f"Frog Stand — {os.path.basename(source)}", out)
+        cv2.imshow(f"Frog Stand — {os.path.basename(source)}", _fit_to_display(out))
         cv2.waitKey(0)
         cv2.destroyAllWindows()
         return
@@ -288,6 +360,9 @@ def detect(source):
 
     source_label = "Camera" if isinstance(source, int) else os.path.basename(source)
 
+    hold_start = None   # time.time() when current hold began, None = resting
+    best_hold  = 0.0    # longest completed or ongoing hold so far
+
     with _make_pose(is_image=False) as pose:
         while True:
             ret, frame = cap.read()
@@ -295,7 +370,22 @@ def detect(source):
                 break
 
             out, is_correct, _ = _process_frame(frame, pose)
-            cv2.imshow(f"Frog Stand — {source_label}  (q to quit)", out)
+
+            # ── Timer logic ───────────────────────────────────────────────
+            now = time.time()
+            if is_correct:
+                if hold_start is None:          # just started holding
+                    hold_start = now
+                else:                           # still holding — update best live
+                    best_hold = max(best_hold, now - hold_start)
+            else:
+                if hold_start is not None:      # just released — finalise best
+                    best_hold  = max(best_hold, now - hold_start)
+                    hold_start = None
+            # ─────────────────────────────────────────────────────────────
+
+            _draw_timer(out, hold_start, best_hold)
+            cv2.imshow(f"Frog Stand — {source_label}  (q to quit)", _fit_to_display(out))
 
             if cv2.waitKey(10) & 0xFF == ord("q"):
                 break
