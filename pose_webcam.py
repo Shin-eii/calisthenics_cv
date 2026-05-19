@@ -30,7 +30,7 @@ def calculate_angle(a, b, c):
     return angle
 
 
-cap = cv2.VideoCapture("pushup_3.mov")
+cap = cv2.VideoCapture("pushup_2.mp4")
 
 # Attibute 
 counter = 0

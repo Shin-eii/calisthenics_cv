@@ -1,0 +1,18 @@
+# Python virtual environment
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# IDE and Editor folders
+.vscode/
+.claude/
+
+# Media and Datasets (assuming these have large videos/images)
+frog_stand/
+push_video/
+*.mp4
+*.avi
